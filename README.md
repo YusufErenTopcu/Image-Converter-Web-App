@@ -1,6 +1,6 @@
 # Image Converter
 
-A privacy-first, frontend-only image format converter built with React.  
+A privacy-first, frontend-only image format converter built with React.
 All conversions run entirely in your browser using the HTML Canvas API.
 
 No uploads. No backend. No tracking.
@@ -35,22 +35,22 @@ No uploads. No backend. No tracking.
 
 ### Input
 
-- PNG  
-- JPG / JPEG  
-- WEBP  
-- BMP  
-- GIF (first frame only)  
-- SVG (rasterized to bitmap)  
-- TIFF (browser-dependent decoding)  
-- ICO (browser-dependent decoding)  
+- PNG
+- JPG / JPEG
+- WEBP
+- BMP
+- GIF (first frame only)
+- SVG (rasterized to bitmap)
+- TIFF (browser-dependent decoding)
+- ICO (browser-dependent decoding)
 
 ### Output
 
-- PNG  
-- JPG / JPEG  
-- WEBP (browser-dependent encoding)  
-- BMP  
-- ICO (PNG stored inside `.ico` container)  
+- PNG
+- JPG / JPEG
+- WEBP (browser-dependent encoding)
+- BMP
+- ICO (PNG stored inside `.ico` container)
 
 ---
 
@@ -81,4 +81,36 @@ No network requests. No analytics. No storage.
 ~~~bash
 npm install
 npm run dev
+~~~
 
+If you get a port-in-use error:
+
+~~~bash
+npm run dev -- --port 5174
+~~~
+
+## Build
+
+~~~bash
+npm run build
+npm run preview
+~~~
+
+## Deploy
+
+This project can be deployed as a static site (output directory: `dist/`).
+
+- Build command: `npm run build`
+- Output directory: `dist`
+
+Note: `vite.config.js` uses `base: './'` so CSS/JS assets load correctly on subpaths (e.g., GitHub Pages).
+
+## Troubleshooting
+
+- **WEBP export missing:** your browser may not support `canvas.toBlob('image/webp')`.
+- **TIFF/ICO fails to load:** decoding depends on browser support; try another browser.
+- **Large images:** conversion can be memory-intensive; try resizing.
+
+## Author
+
+Made by [Yusuf Eren Topcu](https://github.com/YusufErenTopcu).
