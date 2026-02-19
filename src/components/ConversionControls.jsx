@@ -7,13 +7,16 @@ export function ConversionControls({
   isConverting,
   canConvert,
   canDownloadAll,
+  avifEncodeSupported,
   webpEncodeSupported,
   onConvert,
   onClear,
   onDownloadAll,
 }) {
-  const showQuality = settings.outputFormat === 'jpeg' || settings.outputFormat === 'webp'
+  const showQuality = settings.outputFormat === 'jpeg' || settings.outputFormat === 'webp' || settings.outputFormat === 'avif'
   const showBackground = settings.outputFormat === 'jpeg'
+
+  const statusText = isConverting ? 'Converting in progress.' : canConvert ? 'Ready to convert.' : 'Add files to convert.'
 
   return (
     <section className="panel" aria-label="Conversion">
@@ -35,6 +38,10 @@ export function ConversionControls({
       </div>
 
       <div className="panel-body">
+        <div className="sr-only" aria-live="polite">
+          {statusText}
+        </div>
+
         <FormatSelector
           value={settings.outputFormat}
           options={outputFormats}
@@ -43,6 +50,10 @@ export function ConversionControls({
 
         {settings.outputFormat === 'webp' && !webpEncodeSupported ? (
           <p className="hint">WEBP export is not supported by your browser.</p>
+        ) : null}
+
+        {settings.outputFormat === 'avif' && !avifEncodeSupported ? (
+          <p className="hint">AVIF export is not supported by your browser.</p>
         ) : null}
 
         {showQuality ? (

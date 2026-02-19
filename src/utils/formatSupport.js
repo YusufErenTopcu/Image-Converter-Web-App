@@ -1,6 +1,14 @@
 const INPUT_FORMATS = [
   { key: 'png', label: 'PNG', extensions: ['png'], mime: ['image/png'] },
   { key: 'jpeg', label: 'JPG / JPEG', extensions: ['jpg', 'jpeg'], mime: ['image/jpeg'] },
+  { key: 'avif', label: 'AVIF', extensions: ['avif'], mime: ['image/avif'], limitations: 'AVIF decoding depends on browser support.' },
+  {
+    key: 'heic',
+    label: 'HEIC / HEIF',
+    extensions: ['heic', 'heif'],
+    mime: ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'],
+    limitations: 'HEIC/HEIF decoding uses a WASM-based decoder and may be slower on large images.',
+  },
   { key: 'webp', label: 'WEBP', extensions: ['webp'], mime: ['image/webp'] },
   { key: 'bmp', label: 'BMP', extensions: ['bmp'], mime: ['image/bmp'] },
   { key: 'gif', label: 'GIF', extensions: ['gif'], mime: ['image/gif'], limitations: 'Animated GIFs are converted using the first frame only.' },
@@ -12,15 +20,19 @@ const INPUT_FORMATS = [
 const OUTPUT_FORMATS = [
   { key: 'png', label: 'PNG', mime: 'image/png', extension: 'png', lossy: false, supportsAlpha: true },
   { key: 'jpeg', label: 'JPG / JPEG', mime: 'image/jpeg', extension: 'jpg', lossy: true, supportsAlpha: false },
+  { key: 'avif', label: 'AVIF', mime: 'image/avif', extension: 'avif', lossy: true, supportsAlpha: true, runtimeSupport: 'avif-encode' },
   { key: 'webp', label: 'WEBP', mime: 'image/webp', extension: 'webp', lossy: true, supportsAlpha: true, runtimeSupport: 'webp-encode' },
   { key: 'bmp', label: 'BMP', mime: 'image/bmp', extension: 'bmp', lossy: false, supportsAlpha: false },
   { key: 'ico', label: 'ICO', mime: 'image/x-icon', extension: 'ico', lossy: false, supportsAlpha: true },
 ]
 
-export function getOutputFormats({ webpEncodeSupported }) {
+export function getOutputFormats({ webpEncodeSupported, avifEncodeSupported }) {
   return OUTPUT_FORMATS.map((f) => {
     if (f.runtimeSupport === 'webp-encode') {
       return { ...f, supported: Boolean(webpEncodeSupported) }
+    }
+    if (f.runtimeSupport === 'avif-encode') {
+      return { ...f, supported: Boolean(avifEncodeSupported) }
     }
     return { ...f, supported: true }
   })
@@ -33,6 +45,18 @@ export function supportsWebpEncode() {
     canvas.height = 1
     const dataUrl = canvas.toDataURL('image/webp')
     return typeof dataUrl === 'string' && dataUrl.startsWith('data:image/webp')
+  } catch {
+    return false
+  }
+}
+
+export function supportsAvifEncode() {
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1
+    canvas.height = 1
+    const dataUrl = canvas.toDataURL('image/avif')
+    return typeof dataUrl === 'string' && dataUrl.startsWith('data:image/avif')
   } catch {
     return false
   }

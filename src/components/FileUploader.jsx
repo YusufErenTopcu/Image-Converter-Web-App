@@ -80,7 +80,7 @@ export function FileUploader({ accept, onFilesAdded }) {
               <span className="badge">No uploads</span>
             </div>
             <div className="dropzone-notes muted small">
-              SVG is rasterized, GIF uses first frame, TIFF/ICO depend on browser decoding.
+              SVG is rasterized, GIF uses first frame, AVIF/TIFF/ICO depend on browser decoding, HEIC/HEIF uses WASM.
             </div>
           </div>
         </div>

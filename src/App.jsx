@@ -5,7 +5,7 @@ import { ImagePreview } from './components/ImagePreview'
 import { ResultList } from './components/ResultList'
 import { ThemeToggle } from './components/ThemeToggle'
 import { useImageConversion } from './hooks/useImageConversion'
-import { getInputAcceptString, getOutputFormats, supportsWebpEncode } from './utils/formatSupport'
+import { getInputAcceptString, getOutputFormats, supportsAvifEncode, supportsWebpEncode } from './utils/formatSupport'
 import { downloadConvertedAsZip } from './utils/zipDownload'
 
 function App() {
@@ -26,8 +26,12 @@ function App() {
   } = useImageConversion()
 
   const accept = useMemo(() => getInputAcceptString(), [])
+  const avifEncodeSupported = useMemo(() => supportsAvifEncode(), [])
   const webpEncodeSupported = useMemo(() => supportsWebpEncode(), [])
-  const outputFormats = useMemo(() => getOutputFormats({ webpEncodeSupported }), [webpEncodeSupported])
+  const outputFormats = useMemo(
+    () => getOutputFormats({ webpEncodeSupported, avifEncodeSupported }),
+    [webpEncodeSupported, avifEncodeSupported],
+  )
   const canDownloadAll = useMemo(() => items.some((x) => x.status === 'done' && x.convertedBlob), [items])
 
   return (
@@ -67,8 +71,9 @@ function App() {
               isConverting={isConverting}
               canConvert={anyReady}
               canDownloadAll={canDownloadAll}
+              avifEncodeSupported={avifEncodeSupported}
               webpEncodeSupported={webpEncodeSupported}
-              onConvert={() => convertAll({ webpEncodeSupported })}
+              onConvert={() => convertAll({ webpEncodeSupported, avifEncodeSupported })}
               onClear={clearAll}
               onDownloadAll={async () => {
                 try {
@@ -85,7 +90,7 @@ function App() {
 
         <footer className="app-footer">
           <span className="muted small">
-            Canvas-based conversion. SVG is rasterized; GIF uses first frame; TIFF/ICO decode depends on browser support.
+            Canvas-based conversion. SVG is rasterized; GIF uses first frame; AVIF/TIFF/ICO decode depends on browser support; HEIC/HEIF uses WASM decode.
           </span>
         </footer>
       </main>

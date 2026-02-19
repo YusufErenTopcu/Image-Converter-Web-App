@@ -1,5 +1,14 @@
 import { buildOutputFileName, parseSvgIntrinsicSize } from './formatSupport'
 
+function getDecodeWarnings(inputFormatKey) {
+  const warnings = []
+  if (inputFormatKey === 'gif') warnings.push('GIF converted using the first frame only.')
+  if (inputFormatKey === 'tiff') warnings.push('TIFF decoding depends on browser support.')
+  if (inputFormatKey === 'ico') warnings.push('ICO decoding depends on browser support.')
+  if (inputFormatKey === 'avif') warnings.push('AVIF decoding depends on browser support.')
+  return warnings
+}
+
 function hexToRgb(hex) {
   const raw = (hex || '').trim()
   const normalized = raw.startsWith('#') ? raw.slice(1) : raw
@@ -41,6 +50,13 @@ function canvasToBlob(canvas, mimeType, quality) {
           reject(new Error(`Failed to export as ${mimeType}.`))
           return
         }
+
+        const requested = (mimeType || '').toLowerCase()
+        const actual = (blob.type || '').toLowerCase()
+        if (requested && requested !== 'image/png' && actual && actual !== requested) {
+          reject(new Error(`${mimeType} export is not supported in this browser.`))
+          return
+        }
         resolve(blob)
       },
       mimeType,
@@ -76,6 +92,54 @@ async function decodeImageBitmap(blob) {
 }
 
 export async function decodeSourceToCanvas(file, inputFormatKey) {
+  if (inputFormatKey === 'heic') {
+    let converted
+    try {
+      const mod = await import('heic2any')
+      const heic2any = mod?.default || mod
+
+      converted = await heic2any({ blob: file, toType: 'image/png' })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'HEIC/HEIF decode failed.'
+      throw new Error(`HEIC/HEIF decode failed: ${msg}`)
+    }
+
+    const blobs = Array.isArray(converted) ? converted : [converted]
+    const first = blobs[0]
+    if (!(first instanceof Blob)) throw new Error('HEIC/HEIF decode failed.')
+
+    const warnings = []
+    if (blobs.length > 1) warnings.push('HEIC/HEIF contains multiple images; converted using the first frame only.')
+    warnings.push('HEIC/HEIF decoded via WASM before conversion.')
+
+    const bitmap = await decodeImageBitmap(first)
+    if (bitmap) {
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (!ctx) throw new Error('Canvas 2D context is unavailable.')
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(bitmap, 0, 0)
+      bitmap.close?.()
+      return { canvas, width: canvas.width, height: canvas.height, warnings }
+    }
+
+    const { img, cleanup } = await decodeViaImageElement(first)
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth || img.width
+      canvas.height = img.naturalHeight || img.height
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (!ctx) throw new Error('Canvas 2D context is unavailable.')
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0)
+      return { canvas, width: canvas.width, height: canvas.height, warnings }
+    } finally {
+      cleanup()
+    }
+  }
+
   if (inputFormatKey === 'svg') {
     const svgText = await file.text()
     const intrinsic = parseSvgIntrinsicSize(svgText)
@@ -112,12 +176,7 @@ export async function decodeSourceToCanvas(file, inputFormatKey) {
     ctx.drawImage(bitmap, 0, 0)
     bitmap.close?.()
 
-    const warnings = []
-    if (inputFormatKey === 'gif') warnings.push('GIF converted using the first frame only.')
-    if (inputFormatKey === 'tiff') warnings.push('TIFF decoding depends on browser support.')
-    if (inputFormatKey === 'ico') warnings.push('ICO decoding depends on browser support.')
-
-    return { canvas, width: canvas.width, height: canvas.height, warnings }
+    return { canvas, width: canvas.width, height: canvas.height, warnings: getDecodeWarnings(inputFormatKey) }
   }
 
   const { img, cleanup } = await decodeViaImageElement(file)
@@ -130,12 +189,7 @@ export async function decodeSourceToCanvas(file, inputFormatKey) {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(img, 0, 0)
 
-    const warnings = []
-    if (inputFormatKey === 'gif') warnings.push('GIF converted using the first frame only.')
-    if (inputFormatKey === 'tiff') warnings.push('TIFF decoding depends on browser support.')
-    if (inputFormatKey === 'ico') warnings.push('ICO decoding depends on browser support.')
-
-    return { canvas, width: canvas.width, height: canvas.height, warnings }
+    return { canvas, width: canvas.width, height: canvas.height, warnings: getDecodeWarnings(inputFormatKey) }
   } finally {
     cleanup()
   }
@@ -234,11 +288,14 @@ function encodeBmpFromCanvas(canvas, backgroundHex) {
 
   const padding = rowSize - width * bytesPerPixel
 
+  let hadAlpha = false
+
   let dst = pixelDataOffset
   for (let y = height - 1; y >= 0; y -= 1) {
     for (let x = 0; x < width; x += 1) {
       const i = (y * width + x) * 4
       const rgba = { r: data[i], g: data[i + 1], b: data[i + 2], a: data[i + 3] }
+      if (rgba.a !== 255) hadAlpha = true
       const rgb = rgba.a === 255 ? rgba : compositeOverBackground(bg, rgba)
       view.setUint8(dst++, rgb.b)
       view.setUint8(dst++, rgb.g)
@@ -247,7 +304,7 @@ function encodeBmpFromCanvas(canvas, backgroundHex) {
     for (let k = 0; k < padding; k += 1) view.setUint8(dst++, 0)
   }
 
-  return new Blob([buffer], { type: 'image/bmp' })
+  return { blob: new Blob([buffer], { type: 'image/bmp' }), hadAlpha }
 }
 
 async function encodeIcoFromCanvas(canvas) {
@@ -343,7 +400,6 @@ export async function convertCanvasToFormat(sourceCanvas, settings) {
   ctx.drawImage(sourceCanvas, 0, 0, canvas.width, canvas.height)
 
   const warnings = []
-  const hasAlpha = detectAlpha(ctx, canvas.width, canvas.height)
 
   let blob
   let mime
@@ -354,19 +410,25 @@ export async function convertCanvasToFormat(sourceCanvas, settings) {
     mime = 'image/png'
     extension = 'png'
   } else if (outputFormat === 'jpeg') {
+    const hasAlpha = detectAlpha(ctx, canvas.width, canvas.height)
     blob = await canvasToBlob(canvas, 'image/jpeg', Number.isFinite(quality) ? quality : 0.85)
     mime = 'image/jpeg'
     extension = 'jpg'
     if (hasAlpha) warnings.push('Transparency flattened for JPEG output.')
+  } else if (outputFormat === 'avif') {
+    blob = await canvasToBlob(canvas, 'image/avif', Number.isFinite(quality) ? quality : 0.85)
+    mime = 'image/avif'
+    extension = 'avif'
   } else if (outputFormat === 'webp') {
     blob = await canvasToBlob(canvas, 'image/webp', Number.isFinite(quality) ? quality : 0.85)
     mime = 'image/webp'
     extension = 'webp'
   } else if (outputFormat === 'bmp') {
-    blob = encodeBmpFromCanvas(canvas, background || '#ffffff')
+    const encoded = encodeBmpFromCanvas(canvas, background || '#ffffff')
+    blob = encoded.blob
     mime = 'image/bmp'
     extension = 'bmp'
-    if (hasAlpha) warnings.push('Transparency flattened for BMP output.')
+    if (encoded.hadAlpha) warnings.push('Transparency flattened for BMP output.')
   } else if (outputFormat === 'ico') {
     blob = await encodeIcoFromCanvas(canvas)
     mime = 'image/x-icon'

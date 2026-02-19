@@ -21,7 +21,7 @@ No uploads. No backend. No tracking.
 - Drag & drop or file picker
 - Multiple file selection and batch conversion
 - Output format selection
-- Quality control for lossy formats (JPG / WEBP)
+- Quality control for lossy formats (JPG / WEBP / AVIF)
 - Resize images (width / height) with aspect ratio lock
 - Background color selection for transparent images when exporting to JPG
 - Original vs converted file size comparison
@@ -37,6 +37,8 @@ No uploads. No backend. No tracking.
 
 - PNG
 - JPG / JPEG
+- AVIF (browser-dependent decoding)
+- HEIC / HEIF (WASM-based decoding)
 - WEBP
 - BMP
 - GIF (first frame only)
@@ -48,6 +50,7 @@ No uploads. No backend. No tracking.
 
 - PNG
 - JPG / JPEG
+- AVIF (browser-dependent encoding)
 - WEBP (browser-dependent encoding)
 - BMP
 - ICO (PNG stored inside `.ico` container)
@@ -58,6 +61,8 @@ No uploads. No backend. No tracking.
 
 - SVG files are rasterized before conversion.
 - GIF files are converted using the first frame only (no animation support).
+- AVIF input/output support depends on browser capabilities.
+- HEIC/HEIF input is decoded via WASM and can be slower on large images.
 - TIFF and ICO input decoding depends on browser support.
 - JPG output does not support transparency; transparent pixels are flattened using the selected background color.
 
@@ -108,7 +113,9 @@ Note: `vite.config.js` uses `base: './'` so CSS/JS assets load correctly on subp
 ## Troubleshooting
 
 - **WEBP export missing:** your browser may not support `canvas.toBlob('image/webp')`.
+- **AVIF export missing:** your browser may not support `canvas.toBlob('image/avif')`.
 - **TIFF/ICO fails to load:** decoding depends on browser support; try another browser.
+- **HEIC/HEIF fails to convert:** try a different browser or re-export as JPG/PNG from your device; WASM decoding can fail on very large files.
 - **Large images:** conversion can be memory-intensive; try resizing.
 
 ## Author

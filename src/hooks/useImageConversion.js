@@ -144,7 +144,7 @@ export function useImageConversion() {
   }, [])
 
   const convertAll = useCallback(
-    async ({ webpEncodeSupported }) => {
+    async ({ webpEncodeSupported, avifEncodeSupported }) => {
       if (isConverting) return
       setIsConverting(true)
 
@@ -177,6 +177,10 @@ export function useImageConversion() {
           try {
             if (settings.outputFormat === 'webp' && !webpEncodeSupported) {
               throw new Error('WEBP output is not supported in this browser.')
+            }
+
+            if (settings.outputFormat === 'avif' && !avifEncodeSupported) {
+              throw new Error('AVIF output is not supported in this browser.')
             }
 
             if (!item.inputFormat) {
